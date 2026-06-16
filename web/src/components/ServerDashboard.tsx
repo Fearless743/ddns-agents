@@ -105,8 +105,6 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
   const adjectives = ['alpha', 'beta', 'gamma', 'delta', 'eclipse', 'falcon', 'galaxy', 'horizon', 'infinity', 'jupiter', 'karma', 'lightning', 'meteor', 'nebula', 'orbit', 'phoenix', 'quantum', 'rocket', 'star', 'thunder', 'ultra', 'vortex', 'wave', 'xenon', 'yellow', 'zenith', 'blaze', 'cosmic', 'dragon', 'ember']
   const nouns = ['server', 'node', 'host', 'cluster', 'station', 'base', 'hub', 'core', 'rack', 'pod', 'frame', 'grid', 'link', 'mesh', 'net', 'port', 'route', 'sync', 'zone', 'axis', 'beam', 'bolt', 'cell', 'dash', 'edge', 'flux', 'gate', 'hex', 'key', 'lat']
 
-  const API_BASE = '/api/servers'
-
   const generateSlug = () => {
     const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
     const noun = nouns[Math.floor(Math.random() * nouns.length)]
