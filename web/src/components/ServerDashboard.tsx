@@ -111,6 +111,7 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
       return
     }
     console.log('[ADD] Submitting hostname:', newHostname, 'token:', token.substring(0, 20))
+    alert(`准备提交: ${newHostname}`)
     setLoading(true)
     setError('')
     try {
