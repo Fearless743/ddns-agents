@@ -81,23 +81,35 @@ function generateJWT(payload: AdminToken): string {
 function verifyJWT(token: string): AdminToken | null {
   try {
     const parts = token.split('.')
-    if (parts.length !== 3) return null
+    if (parts.length !== 3) {
+      console.log('[JWT] Invalid token format, parts count:', parts.length)
+      return null
+    }
 
     const [header, data, signature] = parts
     const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${data}`).digest('base64url')
-    if (signature !== expectedSig) return null
+    if (signature !== expectedSig) {
+      console.log('[JWT] Signature mismatch')
+      return null
+    }
 
     const payload = JSON.parse(Buffer.from(data, 'base64url').toString())
-    if (Date.now() > payload.exp) return null
+    if (Date.now() > payload.exp) {
+      console.log('[JWT] Token expired')
+      return null
+    }
 
     return payload
-  } catch {
+  } catch (err) {
+    console.log('[JWT] Parse error:', err)
     return null
   }
 }
 
 function requireAuth(request: Request): NextResponse | null {
-  const authHeader = request.headers.get('Authorization')
+  const authHeader = request.headers.get('Authorization') || ''
+  console.log('[AUTH] Authorization header:', authHeader.substring(0, 20) + '...')
+  
   if (!authHeader) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -106,9 +118,11 @@ function requireAuth(request: Request): NextResponse | null {
   const decoded = verifyJWT(token)
   
   if (!decoded) {
+    console.log('[AUTH] JWT verification failed')
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
   }
 
+  console.log('[AUTH] JWT verified for user:', decoded.username)
   return null
 }
 
@@ -182,6 +196,8 @@ export async function POST(request: Request) {
 async function handleLogin(request: Request) {
   const { username, password } = await request.json()
 
+  console.log('[LOGIN] Attempt for user:', username)
+
   if (username !== ADMIN_USERNAME || hashPassword(password) !== hashPassword(ADMIN_PASSWORD)) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
   }
@@ -190,6 +206,8 @@ async function handleLogin(request: Request) {
     username,
     exp: Date.now() + 24 * 60 * 60 * 1000,
   })
+
+  console.log('[LOGIN] Token generated for:', username)
 
   return NextResponse.json({
     status: 'ok',
