@@ -219,7 +219,7 @@ func sendReport(info *ServerInfo) {
 		return
 	}
 
-	resp, err := client.Post(backendURL+"/api/servers/report", "application/json", bytes.NewBuffer(reportData))
+	resp, err := client.Post(backendURL+"/api/servers", "application/json", bytes.NewBuffer(reportData))
 	if err != nil {
 		log.Printf("Error sending report: %v", err)
 		return

@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     })
   }
 
-  if (path === 'servers') {
+  if (path === 'list' || path === '') {
     return NextResponse.json(Object.values(store.servers))
   }
 
@@ -70,13 +70,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const path = searchParams.get('path') || ''
-
-  if (path !== 'report') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-
   const report = await request.json()
   const server = createServerFromReport(report)
   store.servers[server.id] = server
