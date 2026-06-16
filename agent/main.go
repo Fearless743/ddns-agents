@@ -60,7 +60,7 @@ type NetworkInfo struct {
 }
 
 var agentVersion = "1.0.0"
-var backendURL = "http://localhost:3000/api"
+var backendURL = "http://localhost:3000"
 var updateInterval = 30 * time.Second
 var apiKey = ""
 
