@@ -55,7 +55,7 @@ export default function Home() {
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}${API_BASE}?path=ws&token=${encodeURIComponent(authToken)}`
+    const wsUrl = `${protocol}//${window.location.host}/api/ws?type=admin&token=${encodeURIComponent(authToken)}`
 
     const ws = new WebSocket(wsUrl)
 
