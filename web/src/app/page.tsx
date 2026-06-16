@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Navbar } from '@/components/Navbar'
-import { ServerCard } from '@/components/ServerCard'
+import { ServerDashboard } from '@/components/ServerDashboard'
 
 interface Server {
   id: string
