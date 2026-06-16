@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Navbar } from '@/components/Navbar'
 import { ServerDashboard } from '@/components/ServerDashboard'
 
@@ -34,17 +34,71 @@ export default function Home() {
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [token, setToken] = useState<string | null>(null)
+  const [wsConnected, setWsConnected] = useState(false)
+  const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
     const storedToken = localStorage.getItem('admin_token')
     if (storedToken) {
       setToken(storedToken)
       fetchServers(storedToken)
+      connectWebSocket(storedToken)
     } else {
       setShowLogin(true)
       setLoading(false)
     }
   }, [])
+
+  const connectWebSocket = (authToken: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.close()
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${protocol}//${window.location.host}${API_BASE}?path=ws&token=${encodeURIComponent(authToken)}`
+
+    const ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => {
+      console.log('WS connected')
+      setWsConnected(true)
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data)
+        if (message.type === 'server_added' || message.type === 'server_update') {
+          setServers(prev => {
+            const existing = prev.findIndex(s => s.id === message.data.id)
+            if (existing >= 0) {
+              const updated = [...prev]
+              updated[existing] = message.data
+              return updated
+            }
+            return [...prev, message.data]
+          })
+        }
+      } catch (err) {
+        console.error('WS message error:', err)
+      }
+    }
+
+    ws.onerror = (err) => {
+      console.error('WS error:', err)
+      setWsConnected(false)
+    }
+
+    ws.onclose = () => {
+      console.log('WS disconnected')
+      setWsConnected(false)
+      // Reconnect after 3 seconds
+      setTimeout(() => {
+        if (authToken) connectWebSocket(authToken)
+      }, 3000)
+    }
+
+    wsRef.current = ws
+  }
 
   const fetchServers = async (authToken: string) => {
     try {
@@ -80,6 +134,7 @@ export default function Home() {
         setUsername('')
         setPassword('')
         fetchServers(data.token)
+        connectWebSocket(data.token)
       } else {
         setLoginError(data.error || '登录失败')
       }
@@ -89,11 +144,24 @@ export default function Home() {
   }
 
   const handleLogout = () => {
+    if (wsRef.current) {
+      wsRef.current.close()
+      wsRef.current = null
+    }
     localStorage.removeItem('admin_token')
     setToken(null)
     setShowLogin(true)
     setServers([])
+    setWsConnected(false)
   }
+
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
+    }
+  }, [])
 
   if (showLogin) {
     return (
@@ -145,7 +213,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar serverCount={servers.length} onLogout={handleLogout} />
+      <Navbar serverCount={servers.length} onLogout={handleLogout} wsConnected={wsConnected} />
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {loading ? (
           <div className="flex justify-center items-center h-64">

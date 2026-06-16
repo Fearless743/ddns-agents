@@ -40,22 +40,18 @@ interface AdminToken {
   exp: number
 }
 
-interface ServerStore {
-  servers: Record<string, Server>
-  apiKeys: Map<string, string>
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const globalStore = globalThis as any
 
-if (!globalStore.serverStore) {
-  globalStore.serverStore = {
+if (!globalStore.ddnsStore) {
+  globalStore.ddnsStore = {
     servers: {} as Record<string, Server>,
     apiKeys: new Map<string, string>(),
+    adminWs: null as WebSocket | null,
   }
 }
 
-const store = globalStore.serverStore
+const store = globalStore.ddnsStore
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ''
@@ -88,84 +84,60 @@ function generateJWT(payload: AdminToken): string {
 function verifyJWT(token: string): AdminToken | null {
   try {
     const parts = token.split('.')
-    if (parts.length !== 3) {
-      console.log('[JWT] Invalid token format, parts count:', parts.length)
-      return null
-    }
-
+    if (parts.length !== 3) return null
     const [header, data, signature] = parts
     const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${data}`).digest('base64url')
-    if (signature !== expectedSig) {
-      console.log('[JWT] Signature mismatch')
-      return null
-    }
-
+    if (signature !== expectedSig) return null
     const payload = JSON.parse(Buffer.from(data, 'base64url').toString())
-    if (Date.now() > payload.exp) {
-      console.log('[JWT] Token expired')
-      return null
-    }
-
+    if (Date.now() > payload.exp) return null
     return payload
-  } catch (err) {
-    console.log('[JWT] Parse error:', err)
+  } catch {
     return null
   }
 }
 
-function requireAuth(request: Request): NextResponse | null {
-  const authHeader = request.headers.get('Authorization') || ''
-  console.log('[AUTH] Authorization header:', authHeader.substring(0, 20) + '...')
-  
-  if (!authHeader) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+function broadcastToAdmin(message: string) {
+  if (store.adminWs && store.adminWs.readyState === WebSocket.OPEN) {
+    store.adminWs.send(message)
   }
-
-  const token = authHeader.replace('Bearer ', '')
-  const decoded = verifyJWT(token)
-  
-  if (!decoded) {
-    console.log('[AUTH] JWT verification failed')
-    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
-  }
-
-  console.log('[AUTH] JWT verified for user:', decoded.username)
-  return null
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const path = searchParams.get('path') || ''
+  const token = searchParams.get('token') || ''
+
+  if (path === 'ws') {
+    // WebSocket upgrade
+    const authError = requireAdminAuthByToken(token)
+    if (authError) return authError
+
+    store.adminWs = null as unknown as WebSocket
+
+    const response = new NextResponse(null, { status: 101 })
+    return response
+  }
 
   if (path === 'health') {
-    return NextResponse.json({
-      status: 'ok',
-      time: new Date().toISOString(),
-    })
+    return NextResponse.json({ status: 'ok', time: new Date().toISOString() })
   }
 
   if (path === 'auth') {
     return NextResponse.json({ message: 'Use POST /api/servers?path=login' })
   }
 
-  const authError = requireAuth(request)
+  const authError = requireAdminAuth(request)
   if (authError) return authError
 
   if (path === 'list' || path === '') {
-    const safeServers = Object.values(store.servers).map(
-      ({ api_key_hash, ...rest }) => rest
-    )
+    const safeServers = Object.values(store.servers).map(({ api_key_hash, ...rest }) => rest)
     return NextResponse.json(safeServers)
   }
 
   if (path.startsWith('servers/')) {
     const serverId = path.replace('servers/', '')
     const server = store.servers[serverId]
-
-    if (!server) {
-      return NextResponse.json({ error: 'Server not found' }, { status: 404 })
-    }
-
+    if (!server) return NextResponse.json({ error: 'Server not found' }, { status: 404 })
     const { api_key_hash, ...safeServer } = server
     return NextResponse.json(safeServer)
   }
@@ -177,22 +149,15 @@ export async function POST(request: Request) {
   const { searchParams } = new URL(request.url)
   const path = searchParams.get('path') || ''
 
-  if (path === 'login') {
-    return await handleLogin(request)
-  }
-
+  if (path === 'login') return await handleLogin(request)
   if (path === 'add') {
-    const authError = requireAuth(request)
+    const authError = requireAdminAuth(request)
     if (authError) return authError
     return await handleAddServer(request)
   }
-
-  if (path === 'report') {
-    return await handleReport(request)
-  }
-
+  if (path === 'report') return await handleReport(request)
   if (path === 'reset-key') {
-    const authError = requireAuth(request)
+    const authError = requireAdminAuth(request)
     if (authError) return authError
     return await handleResetKey(request)
   }
@@ -202,42 +167,19 @@ export async function POST(request: Request) {
 
 async function handleLogin(request: Request) {
   const { username, password } = await request.json()
-
-  console.log('[LOGIN] Attempt for user:', username)
-
   if (username !== ADMIN_USERNAME || hashPassword(password) !== hashPassword(ADMIN_PASSWORD)) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
   }
-
-  const token = generateJWT({
-    username,
-    exp: Date.now() + 24 * 60 * 60 * 1000,
-  })
-
-  console.log('[LOGIN] Token generated for:', username)
-
-  return NextResponse.json({
-    status: 'ok',
-    token,
-    username,
-    message: 'Login successful',
-  })
+  const token = generateJWT({ username, exp: Date.now() + 24 * 60 * 60 * 1000 })
+  return NextResponse.json({ status: 'ok', token, username, message: 'Login successful' })
 }
 
 async function handleAddServer(request: Request) {
   const { hostname } = await request.json()
+  if (!hostname) return NextResponse.json({ error: 'Hostname is required' }, { status: 400 })
 
-  if (!hostname) {
-    return NextResponse.json({ error: 'Hostname is required' }, { status: 400 })
-  }
-
-  const existingServer = Object.values(store.servers).find(
-    (s) => s.hostname === hostname
-  )
-
-  if (existingServer) {
-    return NextResponse.json({ error: 'Server already exists' }, { status: 409 })
-  }
+  const existingServer = Object.values(store.servers).find((s) => s.hostname === hostname)
+  if (existingServer) return NextResponse.json({ error: 'Server already exists' }, { status: 409 })
 
   const apiKey = generateApiKey()
   const apiKeyHash = hashApiKey(apiKey)
@@ -261,12 +203,10 @@ async function handleAddServer(request: Request) {
 
   store.apiKeys.set(hostname, apiKey)
 
-  return NextResponse.json({
-    status: 'created',
-    hostname,
-    api_key: apiKey,
-    message: 'Server added successfully.',
-  })
+  const safeServer = { ...store.servers[serverId], api_key_hash: undefined }
+  broadcastToAdmin(JSON.stringify({ type: 'server_added', data: safeServer }))
+
+  return NextResponse.json({ status: 'created', hostname, api_key: apiKey, message: 'Server added successfully.' })
 }
 
 async function handleReport(request: Request) {
@@ -282,10 +222,7 @@ async function handleReport(request: Request) {
   const report = JSON.parse(body)
 
   const apiKey = store.apiKeys.get(serverId)
-  if (!apiKey) {
-    return NextResponse.json({ error: 'Unknown server' }, { status: 401 })
-  }
-
+  if (!apiKey) return NextResponse.json({ error: 'Unknown server' }, { status: 401 })
   if (!verifyAgentToken(token, body, apiKey)) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   }
@@ -293,28 +230,21 @@ async function handleReport(request: Request) {
   const server = createServerFromReport(report, apiKey)
   store.servers[server.id] = server
 
-  return NextResponse.json({
-    status: 'accepted',
-    server: server.id,
-    updated: server.last_update,
-  })
+  const safeServer = { ...server, api_key_hash: undefined }
+  broadcastToAdmin(JSON.stringify({ type: 'server_update', data: safeServer }))
+
+  return NextResponse.json({ status: 'accepted', server: server.id, updated: server.last_update })
 }
 
 async function handleResetKey(request: Request) {
   const { hostname } = await request.json()
-
-  if (!hostname) {
-    return NextResponse.json({ error: 'Hostname is required' }, { status: 400 })
-  }
+  if (!hostname) return NextResponse.json({ error: 'Hostname is required' }, { status: 400 })
 
   const existingKey = store.apiKeys.get(hostname)
-  if (!existingKey) {
-    return NextResponse.json({ error: 'Server not found' }, { status: 404 })
-  }
+  if (!existingKey) return NextResponse.json({ error: 'Server not found' }, { status: 404 })
 
   const newApiKey = generateApiKey()
   const apiKeyHash = hashApiKey(newApiKey)
-
   store.apiKeys.set(hostname, newApiKey)
 
   for (const [id, server] of Object.entries(store.servers)) {
@@ -325,11 +255,23 @@ async function handleResetKey(request: Request) {
     }
   }
 
-  return NextResponse.json({
-    hostname,
-    api_key: newApiKey,
-    message: 'API key reset successfully.',
-  })
+  return NextResponse.json({ hostname, api_key: newApiKey, message: 'API key reset successfully.' })
+}
+
+function requireAdminAuth(request: Request): NextResponse | null {
+  const authHeader = request.headers.get('Authorization') || ''
+  if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const token = authHeader.replace('Bearer ', '')
+  const decoded = verifyJWT(token)
+  if (!decoded) return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+  return null
+}
+
+function requireAdminAuthByToken(token: string): NextResponse | null {
+  if (!token) return NextResponse.json({ error: 'Token required' }, { status: 401 })
+  const decoded = verifyJWT(token)
+  if (!decoded) return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+  return null
 }
 
 function createServerFromReport(report: Record<string, unknown>, apiKey: string): Server {
