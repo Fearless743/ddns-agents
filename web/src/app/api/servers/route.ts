@@ -8,6 +8,7 @@ interface Server {
   os: string
   platform: string
   agent_version: string
+  api_key_hash?: string
   cpu: {
     usage_percent: number
     cores: number
@@ -34,10 +35,25 @@ interface Server {
 
 interface ServerStore {
   servers: Record<string, Server>
+  apiKeys: Map<string, string>
 }
 
 const store: ServerStore = {
   servers: {},
+  apiKeys: new Map(),
+}
+
+// HMAC-like token validation using SHA256
+function verifyToken(token: string, body: string, apiKey: string): boolean {
+  const crypto = require('crypto')
+  const expected = crypto.createHmac('sha256', apiKey).update(body).digest('hex')
+  return token === expected
+}
+
+// Generate a random API key
+export function generateApiKey(): string {
+  const crypto = require('crypto')
+  return crypto.randomBytes(32).toString('hex')
 }
 
 export async function GET(request: Request) {
@@ -52,7 +68,9 @@ export async function GET(request: Request) {
   }
 
   if (path === 'list' || path === '') {
-    return NextResponse.json(Object.values(store.servers))
+    // Return servers without sensitive data
+    const safeServers = Object.values(store.servers).map(({ api_key_hash, ...rest }) => rest)
+    return NextResponse.json(safeServers)
   }
 
   if (path.startsWith('servers/')) {
@@ -63,15 +81,67 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Server not found' }, { status: 404 })
     }
 
-    return NextResponse.json(server)
+    const { api_key_hash, ...safeServer } = server
+    return NextResponse.json(safeServer)
+  }
+
+  if (path === 'api-keys') {
+    const keys = Array.from(store.apiKeys.entries()).map(([hostname, key]) => ({
+      hostname,
+      api_key: key,
+    }))
+    return NextResponse.json(keys)
   }
 
   return NextResponse.json({ error: 'Not found' }, { status: 404 })
 }
 
 export async function POST(request: Request) {
-  const report = await request.json()
-  const server = createServerFromReport(report)
+  const { searchParams } = new URL(request.url)
+  const path = searchParams.get('path') || ''
+
+  if (path === 'generate-key') {
+    const { hostname } = await request.json()
+    const apiKey = generateApiKey()
+    store.apiKeys.set(hostname, apiKey)
+
+    return NextResponse.json({
+      hostname,
+      api_key: apiKey,
+      message: 'API key generated successfully',
+    })
+  }
+
+  if (path !== 'report') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const authHeader = request.headers.get('Authorization') || ''
+  const serverId = request.headers.get('X-Server-ID') || ''
+  const token = authHeader.replace('Bearer ', '')
+
+  // Validate authentication
+  if (!token || !serverId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Read raw body for token verification
+  const body = await request.text()
+  const report = JSON.parse(body)
+
+  // Find the API key for this server
+  const apiKey = store.apiKeys.get(serverId)
+  if (!apiKey) {
+    return NextResponse.json({ error: 'Unknown server' }, { status: 401 })
+  }
+
+  // Verify token
+  if (!verifyToken(token, body, apiKey)) {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  }
+
+  // Process the report
+  const server = createServerFromReport(report, apiKey)
   store.servers[server.id] = server
 
   return NextResponse.json({
@@ -81,7 +151,7 @@ export async function POST(request: Request) {
   })
 }
 
-function createServerFromReport(report: Record<string, unknown>): Server {
+function createServerFromReport(report: Record<string, unknown>, apiKey: string): Server {
   const hostname = getStringField(report, 'hostname') || 'unknown'
   const ip = getStringField(report, 'public_ip') || 'unknown'
   const id = `${hostname}-${ip}`
@@ -94,6 +164,7 @@ function createServerFromReport(report: Record<string, unknown>): Server {
     os: getStringField(report, 'os'),
     platform: getStringField(report, 'platform'),
     agent_version: getStringField(report, 'agent_version'),
+    api_key_hash: apiKey.substring(0, 16) + '...',
     cpu: getCPUInfo(report['cpu'] as Record<string, unknown>),
     memory: getMemoryInfo(report['memory'] as Record<string, unknown>),
     disk: getDiskInfos(report['disk'] as Array<Record<string, unknown>>),

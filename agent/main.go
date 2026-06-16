@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -57,18 +59,10 @@ type NetworkInfo struct {
 	PacketsRecv uint64  `json:"packets_recv"`
 }
 
-// IPUpdate represents an IP update report
-type IPUpdate struct {
-	Hostname  string `json:"hostname"`
-	IPType    string `json:"ip_type"`
-	OldIP     string `json:"old_ip"`
-	NewIP     string `json:"new_ip"`
-	Timestamp string `json:"timestamp"`
-}
-
 var agentVersion = "1.0.0"
 var backendURL = "http://localhost:3000/api"
 var updateInterval = 30 * time.Second
+var apiKey = ""
 
 func main() {
 	log.Printf("DDNS Agent v%s starting...", agentVersion)
@@ -82,10 +76,17 @@ func main() {
 			updateInterval = d
 		}
 	}
+	if key := os.Getenv("DDNS_API_KEY"); key != "" {
+		apiKey = key
+	}
+
+	if apiKey == "" {
+		log.Println("WARNING: DDNS_API_KEY not set, please set it for authentication")
+	}
 
 	// Collect initial system info
 	info := collectServerInfo()
-	
+
 	// Send initial report
 	sendReport(info)
 
@@ -209,6 +210,13 @@ func getHostname() string {
 	return hostname
 }
 
+func createToken(report []byte) string {
+	h := sha256.New()
+	h.Write([]byte(apiKey))
+	h.Write(report)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 func sendReport(info *ServerInfo) {
 	client := &http.Client{Timeout: 10 * time.Second}
 
@@ -219,12 +227,32 @@ func sendReport(info *ServerInfo) {
 		return
 	}
 
-	resp, err := client.Post(backendURL+"/api/servers", "application/json", bytes.NewBuffer(reportData))
+	req, err := http.NewRequest("POST", backendURL+"/api/servers", bytes.NewBuffer(reportData))
+	if err != nil {
+		log.Printf("Error creating request: %v", err)
+		return
+	}
+
+	// Add authentication token if API key is set
+	if apiKey != "" {
+		token := createToken(reportData)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("X-Server-ID", info.Hostname)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error sending report: %v", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	log.Printf("Report sent successfully (HTTP %d)", resp.StatusCode)
+	if resp.StatusCode == 401 {
+		log.Printf("Authentication failed for server %s, check your DDNS_API_KEY", info.Hostname)
+		return
+	}
+
+	log.Printf("Report sent successfully (HTTP %d) for server %s", resp.StatusCode, info.Hostname)
 }
