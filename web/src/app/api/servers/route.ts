@@ -45,10 +45,17 @@ interface ServerStore {
   apiKeys: Map<string, string>
 }
 
-const store: ServerStore = {
-  servers: {},
-  apiKeys: new Map(),
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const globalStore = globalThis as any
+
+if (!globalStore.serverStore) {
+  globalStore.serverStore = {
+    servers: {} as Record<string, Server>,
+    apiKeys: new Map<string, string>(),
+  }
 }
+
+const store = globalStore.serverStore
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ''

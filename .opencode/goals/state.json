@@ -7,8 +7,8 @@
       "objective": "初始化git使用github仓库https://github.com/Fearless743/ddns-agents，每次修改都要提交git，为我制作一个ddns工具，需要有网页端进行服务器状况显示，并且有agent端实时获取ip更新上报，并且agent端会上报相关服务器的配置信息到网页端显示，网页端用什么技术你自己决定，但是agent端一定要用go来制作，在github action进行构建多架构的agent端",
       "status": "completed",
       "createdAt": 1781630169281,
-      "updatedAt": 1781639066032,
-      "tokensUsed": 19841555,
+      "updatedAt": 1781639206652,
+      "tokensUsed": 20561488,
       "timeUsedMs": 2562861,
       "accountedAssistantTokens": {
         "msg_ed16ef10c001LGHn8xisyYJpf6": 11837,
@@ -274,9 +274,14 @@
         "msg_ed1f5c921001jMiwDue2CJHg7a": 142782,
         "msg_ed1f604e9001pIBDbIImzNVeny": 143099,
         "msg_ed1f64c03001tTA1pQRvgcvtYN": 143157,
-        "msg_ed1f6840a001luLlOkplp6Cmyo": 143252
+        "msg_ed1f6840a001luLlOkplp6Cmyo": 143252,
+        "msg_ed1f6b179001ZN2RqoA22U005O": 143387,
+        "msg_ed1f6e99b001IPoeP360CRWrbn": 143548,
+        "msg_ed1f84479001nq3zYlB7h2hkt0": 143628,
+        "msg_ed1f8713a001WWvrPEkABdGY9Y": 144354,
+        "msg_ed1f89de6001mDPWGMTCXB1e36": 145016
       },
-      "lastAssistantMessageID": "msg_ed1f6b179001ZN2RqoA22U005O",
+      "lastAssistantMessageID": "msg_ed1f8d69a001QZeiHhkWObn26n",
       "continuationQueuedAt": 1781630509423,
       "lastContinuationMessageID": "msg_ed1742196001tof0zgQmM9W5XQ",
       "lastContinuationHadToolCalls": true,
