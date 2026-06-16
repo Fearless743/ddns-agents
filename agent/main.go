@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -45,19 +44,17 @@ type MemoryInfo struct {
 }
 
 type DiskInfo struct {
-	Mountpoint string  `json:"mountpoint"`
-	Label      string  `json:"label"`
+	Mountpoint  string  `json:"mountpoint"`
 	UsedPercent float64 `json:"used_percent"`
-	FSType     string  `json:"fs_type"`
+	FSType      string  `json:"fs_type"`
 }
 
 type NetworkInfo struct {
-	Index        int     `json:"index"`
-	Name         string  `json:"name"`
-	BytesSent    uint64  `json:"bytes_sent"`
-	BytesRecv    uint64  `json:"bytes_recv"`
-	PacketsSent  int64   `json:"packets_sent"`
-	PacketsRecv  int64   `json:"packets_recv"`
+	Name        string  `json:"name"`
+	BytesSent   uint64  `json:"bytes_sent"`
+	BytesRecv   uint64  `json:"bytes_recv"`
+	PacketsSent uint64  `json:"packets_sent"`
+	PacketsRecv uint64  `json:"packets_recv"`
 }
 
 // IPUpdate represents an IP update report
@@ -137,7 +134,7 @@ func collectServerInfo() *ServerInfo {
 	cpuInfo, _ := cpu.Info()
 	if len(cpuInfo) > 0 {
 		info.CPU.ModelName = cpuInfo[0].ModelName
-		info.CPU.Cores = int(cpuInfo[0].CPUCount)
+		info.CPU.Cores = int(cpuInfo[0].Cores)
 	}
 	cpuPercent, _ := cpu.Percent(0, false)
 	if len(cpuPercent) > 0 {
@@ -158,22 +155,20 @@ func collectServerInfo() *ServerInfo {
 		usage, _ := disk.Usage(part.Mountpoint)
 		info.Disk = append(info.Disk, DiskInfo{
 			Mountpoint:  part.Mountpoint,
-			Label:       part.Label,
 			UsedPercent: usage.UsedPercent,
 			FSType:      part.Fstype,
 		})
 	}
 
 	// Network info
-	ifAddrs, _ := net.Interfaces()
-	for _, iface := range ifAddrs {
+	ioStats, _ := net.IOCounters(false)
+	for _, io := range ioStats {
 		info.Network = append(info.Network, NetworkInfo{
-			Index:       iface.Index,
-			Name:        iface.Name,
-			BytesSent:   iface.BytesSent,
-			BytesRecv:   iface.BytesRecv,
-			PacketsSent: iface.PacketsRecv,
-			PacketsRecv: iface.PacketsRecv,
+			Name:        io.Name,
+			BytesSent:   io.BytesSent,
+			BytesRecv:   io.BytesRecv,
+			PacketsSent: io.PacketsSent,
+			PacketsRecv: io.PacketsRecv,
 		})
 	}
 
