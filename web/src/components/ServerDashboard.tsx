@@ -103,6 +103,10 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
 
   const handleAddServer = async () => {
     if (!newHostname.trim()) return
+    if (!token) {
+      setError('未授权，请重新登录')
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -112,13 +116,15 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
         body: JSON.stringify({ hostname: newHostname.trim() }),
       })
       const data = await res.json()
+      console.log('Add server response:', data)
       if (res.ok) {
         setGeneratedKey(data.api_key)
         setShowKeyModal(true)
       } else {
         setError(data.error || 'Failed to add server')
       }
-    } catch {
+    } catch (err) {
+      console.error('Add server error:', err)
       setError('Network error')
     } finally {
       setLoading(false)
