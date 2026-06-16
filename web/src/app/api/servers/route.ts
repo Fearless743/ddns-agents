@@ -35,27 +35,26 @@ interface Server {
   }>
 }
 
-interface AdminSession {
+interface AdminToken {
   username: string
-  expiresAt: number
+  exp: number
 }
 
 interface ServerStore {
   servers: Record<string, Server>
   apiKeys: Map<string, string>
-  adminSession: AdminSession | null
 }
 
 const store: ServerStore = {
   servers: {},
   apiKeys: new Map(),
-  adminSession: null,
 }
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ''
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex')
 
-function verifyToken(token: string, body: string, apiKey: string): boolean {
+function verifyAgentToken(token: string, body: string, apiKey: string): boolean {
   const expected = crypto.createHmac('sha256', apiKey).update(body).digest('hex')
   return token === expected
 }
@@ -72,30 +71,42 @@ function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex')
 }
 
-function isSessionValid(session: AdminSession | null): boolean {
-  if (!session) return false
-  return Date.now() < session.expiresAt
+function generateJWT(payload: AdminToken): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${data}`).digest('base64url')
+  return `${header}.${data}.${signature}`
+}
+
+function verifyJWT(token: string): AdminToken | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+
+    const [header, data, signature] = parts
+    const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${data}`).digest('base64url')
+    if (signature !== expectedSig) return null
+
+    const payload = JSON.parse(Buffer.from(data, 'base64url').toString())
+    if (Date.now() > payload.exp) return null
+
+    return payload
+  } catch {
+    return null
+  }
 }
 
 function requireAuth(request: Request): NextResponse | null {
-  const cookie = request.headers.get('cookie') || ''
-  const sessionCookie = cookie.match(/admin_session=([^;]+)/)
-  
-  if (!sessionCookie) {
+  const authHeader = request.headers.get('Authorization')
+  if (!authHeader) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const sessionStr = Buffer.from(sessionCookie[1], 'base64').toString()
-  let session: AdminSession
+  const token = authHeader.replace('Bearer ', '')
+  const decoded = verifyJWT(token)
   
-  try {
-    session = JSON.parse(sessionStr)
-  } catch {
-    return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
-  }
-
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Session expired' }, { status: 401 })
+  if (!decoded) {
+    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
   }
 
   return null
@@ -112,20 +123,10 @@ export async function GET(request: Request) {
     })
   }
 
-  if (path === 'auth' || path === 'login') {
-    return NextResponse.json({
-      username: ADMIN_USERNAME,
-      message: 'Please use POST /api/servers?path=login to authenticate',
-    })
+  if (path === 'auth') {
+    return NextResponse.json({ message: 'Use POST /api/servers?path=login' })
   }
 
-  if (path === 'logout') {
-    const response = NextResponse.json({ status: 'logged_out' })
-    response.cookies.set('admin_session', '', { maxAge: 0, path: '/' })
-    return response
-  }
-
-  // All other GET endpoints require authentication
   const authError = requireAuth(request)
   if (authError) return authError
 
@@ -185,24 +186,17 @@ async function handleLogin(request: Request) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
   }
 
-  const session: AdminSession = {
+  const token = generateJWT({
     username,
-    expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-  }
-
-  const sessionStr = Buffer.from(JSON.stringify(session)).toString('base64')
-  
-  const response = NextResponse.json({
-    status: 'logged_in',
-    username,
-    message: 'Login successful',
-  }, {
-    headers: {
-      'Set-Cookie': `admin_session=${sessionStr}; Path=/; Max-Age=86400; SameSite=Lax; HttpOnly`,
-    },
+    exp: Date.now() + 24 * 60 * 60 * 1000,
   })
 
-  return response
+  return NextResponse.json({
+    status: 'ok',
+    token,
+    username,
+    message: 'Login successful',
+  })
 }
 
 async function handleAddServer(request: Request) {
@@ -217,9 +211,7 @@ async function handleAddServer(request: Request) {
   )
 
   if (existingServer) {
-    return NextResponse.json({
-      error: 'Server already exists',
-    }, { status: 409 })
+    return NextResponse.json({ error: 'Server already exists' }, { status: 409 })
   }
 
   const apiKey = generateApiKey()
@@ -248,7 +240,7 @@ async function handleAddServer(request: Request) {
     status: 'created',
     hostname,
     api_key: apiKey,
-    message: 'Server added successfully. Use this API key on the agent.',
+    message: 'Server added successfully.',
   })
 }
 
@@ -269,7 +261,7 @@ async function handleReport(request: Request) {
     return NextResponse.json({ error: 'Unknown server' }, { status: 401 })
   }
 
-  if (!verifyToken(token, body, apiKey)) {
+  if (!verifyAgentToken(token, body, apiKey)) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   }
 
@@ -311,7 +303,7 @@ async function handleResetKey(request: Request) {
   return NextResponse.json({
     hostname,
     api_key: newApiKey,
-    message: 'API key reset successfully. Update your agent with the new key.',
+    message: 'API key reset successfully.',
   })
 }
 

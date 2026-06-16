@@ -88,7 +88,7 @@ function CopyInput({ value, label }: { value: string; label: string }) {
   )
 }
 
-export function ServerDashboard({ servers }: { servers: Server[] }) {
+export function ServerDashboard({ servers, token }: { servers: Server[]; token: string }) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showKeyModal, setShowKeyModal] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
@@ -99,14 +99,16 @@ export function ServerDashboard({ servers }: { servers: Server[] }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const API_BASE = '/api/servers'
+
   const handleAddServer = async () => {
     if (!newHostname.trim()) return
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/servers?path=add', {
+      const res = await fetch(`${API_BASE}?path=add`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ hostname: newHostname.trim() }),
       })
       const data = await res.json()
@@ -129,9 +131,9 @@ export function ServerDashboard({ servers }: { servers: Server[] }) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/servers?path=reset-key', {
+      const res = await fetch(`${API_BASE}?path=reset-key`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ hostname: resetHostname.trim() }),
       })
       const data = await res.json()

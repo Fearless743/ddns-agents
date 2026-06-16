@@ -24,69 +24,33 @@ interface Server {
   }
 }
 
+const API_BASE = '/api/servers'
+
 export default function Home() {
   const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
+  const [token, setToken] = useState<string | null>(null)
 
   useEffect(() => {
-    checkAuth()
+    const storedToken = localStorage.getItem('admin_token')
+    if (storedToken) {
+      setToken(storedToken)
+      fetchServers(storedToken)
+    } else {
+      setShowLogin(true)
+      setLoading(false)
+    }
   }, [])
 
-  const checkAuth = async () => {
+  const fetchServers = async (authToken: string) => {
     try {
-      const res = await fetch('/api/servers?path=list', { credentials: 'include' })
-      if (res.ok) {
-        setIsLoggedIn(true)
-        setShowLogin(false)
-      } else if (res.status === 401) {
-        setShowLogin(true)
-      }
-    } catch {
-      setShowLogin(true)
-    }
-  }
-
-  const handleLogin = async () => {
-    setLoginError('')
-    try {
-      const res = await fetch('/api/servers?path=login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-        credentials: 'include',
+      const response = await fetch(`${API_BASE}?path=list`, {
+        headers: { Authorization: `Bearer ${authToken}` },
       })
-      const data = await res.json()
-      if (res.ok) {
-        setIsLoggedIn(true)
-        setShowLogin(false)
-        setUsername('')
-        setPassword('')
-        fetchServers()
-      } else {
-        setLoginError(data.error || '登录失败')
-      }
-    } catch {
-      setLoginError('网络错误')
-    }
-  }
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/servers?path=logout', { method: 'POST', credentials: 'include' })
-    } catch {}
-    setIsLoggedIn(false)
-    setShowLogin(true)
-    setServers([])
-  }
-
-  const fetchServers = async () => {
-    try {
-      const response = await fetch('/api/servers?path=list', { credentials: 'include' })
       const data = await response.json()
       setServers(Array.isArray(data) ? data : [])
     } catch (error) {
@@ -96,13 +60,36 @@ export default function Home() {
     }
   }
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchServers()
-      const interval = setInterval(fetchServers, 30000)
-      return () => clearInterval(interval)
+  const handleLogin = async () => {
+    setLoginError('')
+    try {
+      const res = await fetch(`${API_BASE}?path=login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        localStorage.setItem('admin_token', data.token)
+        setToken(data.token)
+        setShowLogin(false)
+        setUsername('')
+        setPassword('')
+        fetchServers(data.token)
+      } else {
+        setLoginError(data.error || '登录失败')
+      }
+    } catch {
+      setLoginError('网络错误')
     }
-  }, [isLoggedIn])
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token')
+    setToken(null)
+    setShowLogin(true)
+    setServers([])
+  }
 
   if (showLogin) {
     return (
@@ -154,14 +141,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar serverCount={servers.length} onLogout={handleLogout} isLoggedIn={isLoggedIn} />
+      <Navbar serverCount={servers.length} onLogout={handleLogout} />
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <ServerDashboard servers={servers} />
+          <ServerDashboard servers={servers} token={token!} />
         )}
       </main>
     </div>
