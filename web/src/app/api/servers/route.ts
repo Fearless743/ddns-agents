@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
+import { NextResponse } from 'next/server'
 
 interface Server {
   id: string
@@ -40,50 +40,52 @@ const store: ServerStore = {
   servers: {},
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const parts = (req.query.path as string[]) || []
-  const path = parts.join('/')
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const path = searchParams.get('path') || ''
 
-  if (req.method === 'GET' && path === 'health') {
-    res.status(200).json({
+  if (path === 'health') {
+    return NextResponse.json({
       status: 'ok',
       time: new Date().toISOString(),
     })
-    return
   }
 
-  if (req.method === 'POST' && path === 'report') {
-    const report = req.body as Record<string, unknown>
-    const server = createServerFromReport(report)
-    store.servers[server.id] = server
-
-    res.status(200).json({
-      status: 'accepted',
-      server: server.id,
-      updated: server.last_update,
-    })
-    return
+  if (path === 'servers') {
+    return NextResponse.json(Object.values(store.servers))
   }
 
-  if (req.method === 'GET' && path === 'servers') {
-    res.status(200).json(Object.values(store.servers))
-    return
-  }
-
-  if (req.method === 'GET' && parts.length === 2 && parts[0] === 'servers') {
-    const serverId = parts[1]
+  if (path.startsWith('servers/')) {
+    const serverId = path.replace('servers/', '')
     const server = store.servers[serverId]
 
     if (!server) {
-      res.status(404).json({ error: 'Server not found' })
-      return
+      return NextResponse.json({ error: 'Server not found' }, { status: 404 })
     }
 
-    res.status(200).json(server)
-    return
+    return NextResponse.json(server)
   }
 
-  res.status(404).json({ error: 'Not found' })
+  return NextResponse.json({ error: 'Not found' }, { status: 404 })
+}
+
+export async function POST(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const path = searchParams.get('path') || ''
+
+  if (path !== 'report') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const report = await request.json()
+  const server = createServerFromReport(report)
+  store.servers[server.id] = server
+
+  return NextResponse.json({
+    status: 'accepted',
+    server: server.id,
+    updated: server.last_update,
+  })
 }
 
 function createServerFromReport(report: Record<string, unknown>): Server {

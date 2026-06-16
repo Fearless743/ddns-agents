@@ -27,7 +27,7 @@ export default function Home() {
   useEffect(() => {
     const fetchServers = async () => {
       try {
-        const response = await fetch('/api/servers')
+        const response = await fetch('/api/servers?path=servers')
         const data = await response.json()
         setServers(Array.isArray(data) ? data : [])
       } catch (error) {
