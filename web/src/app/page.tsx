@@ -60,6 +60,10 @@ export default function Home() {
     }
   }
 
+  const handleServerCreated = () => {
+    fetchServers(token!)
+  }
+
   const handleLogin = async () => {
     setLoginError('')
     try {
@@ -148,7 +152,7 @@ export default function Home() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <ServerDashboard servers={servers} token={token!} />
+          <ServerDashboard servers={servers} token={token!} onSuccess={handleServerCreated} />
         )}
       </main>
     </div>

@@ -88,7 +88,7 @@ function CopyInput({ value, label }: { value: string; label: string }) {
   )
 }
 
-export function ServerDashboard({ servers, token }: { servers: Server[]; token: string }) {
+export function ServerDashboard({ servers, token, onSuccess }: { servers: Server[]; token: string; onSuccess?: () => void }) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showKeyModal, setShowKeyModal] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
@@ -136,6 +136,7 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
       if (res.ok) {
         setGeneratedKey(data.api_key)
         setShowKeyModal(true)
+        if (onSuccess) onSuccess()
       } else {
         setError(data.error || 'Failed to add server')
       }
