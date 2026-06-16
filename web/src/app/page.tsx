@@ -39,7 +39,7 @@ export default function Home() {
 
   const checkAuth = async () => {
     try {
-      const res = await fetch('/api/servers?path=list')
+      const res = await fetch('/api/servers?path=list', { credentials: 'include' })
       if (res.ok) {
         setIsLoggedIn(true)
         setShowLogin(false)
@@ -58,6 +58,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
+        credentials: 'include',
       })
       const data = await res.json()
       if (res.ok) {
@@ -76,7 +77,7 @@ export default function Home() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/servers?path=logout', { method: 'POST' })
+      await fetch('/api/servers?path=logout', { method: 'POST', credentials: 'include' })
     } catch {}
     setIsLoggedIn(false)
     setShowLogin(true)
@@ -85,7 +86,7 @@ export default function Home() {
 
   const fetchServers = async () => {
     try {
-      const response = await fetch('/api/servers?path=list')
+      const response = await fetch('/api/servers?path=list', { credentials: 'include' })
       const data = await response.json()
       setServers(Array.isArray(data) ? data : [])
     } catch (error) {

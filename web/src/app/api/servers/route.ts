@@ -200,8 +200,8 @@ async function handleLogin(request: Request) {
   
   response.cookies.set('admin_session', sessionStr, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: false,
+    sameSite: 'lax',
     maxAge: 24 * 60 * 60,
     path: '/',
   })
