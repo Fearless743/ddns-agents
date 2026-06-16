@@ -7,10 +7,10 @@
       "objective": "初始化git使用github仓库https://github.com/Fearless743/ddns-agents，每次修改都要提交git，为我制作一个ddns工具，需要有网页端进行服务器状况显示，并且有agent端实时获取ip更新上报，并且agent端会上报相关服务器的配置信息到网页端显示，网页端用什么技术你自己决定，但是agent端一定要用go来制作，在github action进行构建多架构的agent端",
       "status": "active",
       "createdAt": 1781630169281,
-      "updatedAt": 1781630487411,
-      "tokensUsed": 1160840,
-      "timeUsedMs": 318130,
-      "activeSince": 1781630487411,
+      "updatedAt": 1781632702034,
+      "tokensUsed": 1744517,
+      "timeUsedMs": 2532753,
+      "activeSince": 1781632702034,
       "accountedAssistantTokens": {
         "msg_ed16ef10c001LGHn8xisyYJpf6": 11837,
         "msg_ed16efc510012jRRgyOJVk0zuv": 12170,
@@ -63,9 +63,29 @@
         "msg_ed17379bb001NPjoX62CpsdbkA": 31360,
         "msg_ed173845c001IOSzIt3CKawAeL": 31512,
         "msg_ed173b69e001bvVrmFfeXstBN1": 32041,
-        "msg_ed173c11e001xHBuv0Z3iQHDP4": 32150
+        "msg_ed173c11e001xHBuv0Z3iQHDP4": 32150,
+        "msg_ed173cb52001MZR0gJ4w4Dt1vg": 32297,
+        "msg_ed173d69e0018qmsWqts5VkaOM": 32413,
+        "msg_ed173f333001enc6JKRsmiDvQN": 32678,
+        "msg_ed173feef00187srAtIUiwDLFL": 33121,
+        "msg_ed1742196001tof0zgQmM9W5XQ": 33170,
+        "msg_ed1742c0a001ptqS7zne15P9Cu": 33404,
+        "msg_ed17436d90014wBM3SYGXzQIG7": 33812,
+        "msg_ed1744195001Bpl66iT2irSLqN": 34425,
+        "msg_ed1744c58001PTKcv4lw8y3hnf": 34666,
+        "msg_ed17463fd0016lptBtpmfqFtcF": 34786,
+        "msg_ed17472400017YhZQhPD5GRP02": 34912,
+        "msg_ed17490b2001BZJvTiR1cANkTg": 35002,
+        "msg_ed17b9512001qRPzu0h1XSB7Oa": 35184,
+        "msg_ed17bde63001JzEYPoUVsLbVI4": 35318,
+        "msg_ed1954af2001KCF2g1pzHpvjXl": 35405,
+        "msg_ed1956af1001EPRwNMha9hV9j4": 36491,
+        "msg_ed1957793001DZIudpuHij7VDG": 36593
       },
-      "lastAssistantMessageID": "msg_ed173cb52001MZR0gJ4w4Dt1vg"
+      "lastAssistantMessageID": "msg_ed195962f00161hYd73M3U4nOZ",
+      "continuationQueuedAt": 1781630509423,
+      "lastContinuationMessageID": "msg_ed1742196001tof0zgQmM9W5XQ",
+      "lastContinuationHadToolCalls": true
     }
   }
 }
