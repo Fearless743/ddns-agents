@@ -98,8 +98,20 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
   const [resetKey, setResetKey] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [autoSlug, setAutoSlug] = useState('')
 
-  const API_BASE = '/api/servers'
+  const adjectives = ['alpha', 'beta', 'gamma', 'delta', 'eclipse', 'falcon', 'galaxy', 'horizon', 'infinity', 'jupiter', 'karma', 'lightning', 'meteor', 'nebula', 'orbit', 'phoenix', 'quantum', 'rocket', 'star', 'thunder', 'ultra', 'vortex', 'wave', 'xenon', 'yellow', 'zenith', 'blaze', 'cosmic', 'dragon', 'ember']
+  const nouns = ['server', 'node', 'host', 'cluster', 'station', 'base', 'hub', 'core', 'rack', 'pod', 'frame', 'grid', 'link', 'mesh', 'net', 'port', 'route', 'sync', 'zone', 'axis', 'beam', 'bolt', 'cell', 'dash', 'edge', 'flux', 'gate', 'hex', 'key', 'lat']
+
+  const generateSlug = () => {
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
+    const noun = nouns[Math.floor(Math.random() * nouns.length)]
+    const num = Math.floor(Math.random() * 900) + 100
+    const slug = `${adj}-${noun}-${num}`
+    setAutoSlug(slug)
+    setNewHostname(slug)
+    return slug
+  }
 
   const handleAddServer = async () => {
     if (!newHostname.trim()) {
@@ -296,15 +308,25 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
         <p className="text-sm text-gray-600 mb-4">输入服务器的主机名，系统将自动生成唯一的 API 密钥。</p>
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">主机名</label>
-          <input
-            type="text"
-            value={newHostname}
-            onChange={(e) => setNewHostname(e.target.value)}
-            placeholder="例如: server-alpha"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onKeyDown={(e) => e.key === 'Enter' && handleAddServer()}
-            autoFocus
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newHostname}
+              onChange={(e) => { setNewHostname(e.target.value); setAutoSlug('') }}
+              placeholder="例如: eclipse-falcon-456"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onKeyDown={(e) => e.key === 'Enter' && handleAddServer()}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={generateSlug}
+              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm whitespace-nowrap"
+              title="生成随机主机名"
+            >
+              🎲 生成
+            </button>
+          </div>
         </div>
         {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
         <button
