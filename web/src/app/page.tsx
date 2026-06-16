@@ -4,8 +4,24 @@ import { useState, useEffect } from 'react'
 import { Navbar } from '@/components/Navbar'
 import { ServerCard } from '@/components/ServerCard'
 
+interface Server {
+  id: string
+  hostname: string
+  public_ip: string
+  last_update: string
+  cpu: {
+    usage_percent: number
+    cores: number
+  }
+  memory: {
+    total: number
+    used: number
+    used_percent: number
+  }
+}
+
 export default function Home() {
-  const [servers, setServers] = useState([])
+  const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -13,7 +29,7 @@ export default function Home() {
       try {
         const response = await fetch('/api/servers')
         const data = await response.json()
-        setServers(data)
+        setServers(Array.isArray(data) ? data : [])
       } catch (error) {
         console.error('Failed to fetch servers:', error)
       } finally {

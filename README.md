@@ -4,45 +4,67 @@ A distributed DDNS (Dynamic DNS) system with real-time server monitoring dashboa
 
 ## Architecture
 
-- **Agent**: Go-based daemon that collects system metrics and reports to backend
-- **Backend**: HTTP API server that receives and stores agent reports
-- **Web Dashboard**: Next.js application for visualizing server status
+- **Agent**: Go-based daemon that collects system metrics and reports to the web dashboard
+- **Web Dashboard**: Next.js application with built-in API that receives and displays agent reports
+- **Single Port**: Frontend and backend share the same port (3000)
 
 ## Quick Start
 
-### 1. Start Backend Server
-
-```bash
-cd backend
-go mod tidy
-go run main.go
-```
-
-### 2. Start Web Dashboard
+### 1. Install Dependencies
 
 ```bash
 cd web
 npm install
+```
+
+### 2. Start the Application
+
+```bash
+cd web
 npm run dev
 ```
 
-Open http://localhost:3000 to view the dashboard.
+This starts both the web dashboard AND the API server on port 3000.
 
 ### 3. Run Agent
 
 ```bash
 cd agent
-export DDNS_BACKEND_URL=http://localhost:4000
+export DDNS_BACKEND_URL=http://localhost:3000
 export DDNS_UPDATE_INTERVAL=30s
-go mod tidy
 go run main.go
+```
+
+Or with default values (no env vars needed, defaults to localhost:3000):
+
+```bash
+cd agent
+go run main.go
+```
+
+## Project Structure
+
+```
+├── agent/              # Go agent (system metrics collector)
+│   ├── main.go         # Agent entry point
+│   ├── go.mod          # Go module dependencies
+│   └── .env.example    # Environment variables
+├── backend/            # Legacy standalone backend (not needed anymore)
+├── web/                # Next.js dashboard + API
+│   ├── src/
+│   │   ├── app/        # Frontend pages
+│   │   ├── components/ # React components
+│   │   └── pages/api/  # API routes (receives agent reports)
+│   ├── package.json
+│   └── .env.example
+└── .github/workflows/  # CI/CD for multi-arch builds
 ```
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DDNS_BACKEND_URL` | Backend API URL | http://localhost:4000 |
+| `DDNS_BACKEND_URL` | Web dashboard URL | http://localhost:3000 |
 | `DDNS_UPDATE_INTERVAL` | Report interval | 30s |
 
 ## Building Agent for Multiple Architectures
@@ -67,6 +89,7 @@ The project includes automated CI/CD pipeline that:
 
 ## Features
 
+- Single port deployment (frontend + API on same port)
 - Real-time server monitoring
 - CPU, Memory, Disk, Network metrics
 - Public IP detection and reporting
