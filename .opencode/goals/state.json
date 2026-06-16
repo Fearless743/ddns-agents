@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "goals": {
+    "ses_12e910f84ffet6gI6tqQc7SRfb": {
+      "id": "916402cc-ab39-4c85-908a-0927f9ac5891",
+      "sessionID": "ses_12e910f84ffet6gI6tqQc7SRfb",
+      "objective": "初始化git使用github仓库https://github.com/Fearless743/ddns-agents，每次修改都要提交git，为我制作一个ddns工具，需要有网页端进行服务器状况显示，并且有agent端实时获取ip更新上报，并且agent端会上报相关服务器的配置信息到网页端显示，网页端用什么技术你自己决定，但是agent端一定要用go来制作，在github action进行构建多架构的agent端",
+      "status": "active",
+      "createdAt": 1781630169281,
+      "updatedAt": 1781630382399,
+      "tokensUsed": 543998,
+      "timeUsedMs": 213118,
+      "activeSince": 1781630382399,
+      "accountedAssistantTokens": {
+        "msg_ed16ef10c001LGHn8xisyYJpf6": 11837,
+        "msg_ed16efc510012jRRgyOJVk0zuv": 12170,
+        "msg_ed16f0341001xfdGuv7WD25Wuj": 12256,
+        "msg_ed16f095d0015OoxZ27XHhn0M7": 12323,
+        "msg_ed16f1007001LB6E5OPJFXgvIf": 14153,
+        "msg_ed16f99cd0015uAVH0eBqHXsFY": 14487,
+        "msg_ed16fa4af001HfSkSo7UOLG9rC": 14724,
+        "msg_ed16fafcc001lr0MDgo7JxFGtL": 14870,
+        "msg_ed16fb991001g5lEVsEscf3fcW": 15153,
+        "msg_ed16fc3ef001krHjF6foJ4asUh": 15252,
+        "msg_ed16fcb79001scygOBixslu29q": 15482,
+        "msg_ed16fd73b0012kg8oSFr7052c3": 15720,
+        "msg_ed16fe3a80014q3m0BoQPn2NEe": 16327,
+        "msg_ed16ff7fe001B4F1XqcTsRdstJ": 16528,
+        "msg_ed170011c001CjQgu0u53MdzRo": 16642,
+        "msg_ed17009d7001dFcTRFHd76lmHZ": 17040,
+        "msg_ed170159f001YHIAITt3LPDSIR": 18033,
+        "msg_ed17090c8001G1DoUGKsw2pgRH": 18129,
+        "msg_ed170981e001Oh1lwEMa925GxJ": 18207,
+        "msg_ed170acf0001cyi1X3Hbw3RAfA": 18436,
+        "msg_ed170cc3b001LtSVOnow06JgWa": 18609,
+        "msg_ed170d475001OTMc0UF5hRWrhJ": 18609,
+        "msg_ed170de2d001GdK5NRXG98ngmD": 19500,
+        "msg_ed170e8d6001vWzyxS7COMqXKE": 19951,
+        "msg_ed1712982001EfUpPNKntnYJwh": 20169,
+        "msg_ed1713f2a0011VQkQ76pg7cqpo": 20565,
+        "msg_ed1714f3e0010xhwW4aGwjyMBB": 21493,
+        "msg_ed171979f001t3hjb9vIHLi0oH": 23483,
+        "msg_ed171d393001z1uHLZ8v9t03of": 24195,
+        "msg_ed17204f2001eBFlrgJpj2yQ1P": 24757,
+        "msg_ed17215fe001uXytiBt3MDoazx": 24898
+      },
+      "lastAssistantMessageID": "msg_ed1723123001sdOYtT24Q5YAZR"
+    }
+  }
+}

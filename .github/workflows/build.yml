@@ -1,0 +1,90 @@
+name: Build Multi-Arch Agent
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'agent/**'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'agent/**'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64, armv7]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('agent/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        working-directory: ./agent
+        run: go mod download
+
+      - name: Build agent
+        working-directory: ./agent
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          if [ "${{ matrix.arch }}" = "armv7" ]; then
+            export GOARCH=arm
+            export GOARM=7
+          fi
+          go build -o ddns-agent-${{ matrix.arch }} -ldflags="-X main.agentVersion=1.0.0" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ddns-agent-${{ matrix.arch }}
+          path: agent/ddns-agent-${{ matrix.arch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release Assets
+        run: |
+          for arch in amd64 arm64 armv7; do
+            chmod +x artifacts/ddns-agent-$arch/ddns-agent-$arch
+          done
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/ddns-agent-amd64/ddns-agent-amd64
+            artifacts/ddns-agent-arm64/ddns-agent-arm64
+            artifacts/ddns-agent-armv7/ddns-agent-armv7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
