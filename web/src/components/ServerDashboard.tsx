@@ -102,11 +102,15 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
   const API_BASE = '/api/servers'
 
   const handleAddServer = async () => {
-    if (!newHostname.trim()) return
+    if (!newHostname.trim()) {
+      setError('请输入主机名')
+      return
+    }
     if (!token) {
       setError('未授权，请重新登录')
       return
     }
+    console.log('[ADD] Submitting hostname:', newHostname, 'token:', token.substring(0, 20))
     setLoading(true)
     setError('')
     try {
@@ -116,7 +120,7 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
         body: JSON.stringify({ hostname: newHostname.trim() }),
       })
       const data = await res.json()
-      console.log('Add server response:', data)
+      console.log('[ADD] Response:', data)
       if (res.ok) {
         setGeneratedKey(data.api_key)
         setShowKeyModal(true)
@@ -124,8 +128,8 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
         setError(data.error || 'Failed to add server')
       }
     } catch (err) {
-      console.error('Add server error:', err)
-      setError('Network error')
+      console.error('[ADD] Error:', err)
+      setError('Network error: ' + err)
     } finally {
       setLoading(false)
       setNewHostname('')
@@ -302,12 +306,13 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
             placeholder="例如: server-alpha"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             onKeyDown={(e) => e.key === 'Enter' && handleAddServer()}
+            autoFocus
           />
         </div>
         {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
         <button
           onClick={handleAddServer}
-          disabled={loading || !newHostname.trim()}
+          disabled={loading}
           className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
         >
           {loading ? '创建中...' : '创建服务器'}
