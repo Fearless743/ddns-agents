@@ -196,14 +196,10 @@ async function handleLogin(request: Request) {
     status: 'logged_in',
     username,
     message: 'Login successful',
-  })
-  
-  response.cookies.set('admin_session', sessionStr, {
-    httpOnly: true,
-    secure: false,
-    sameSite: 'lax',
-    maxAge: 24 * 60 * 60,
-    path: '/',
+  }, {
+    headers: {
+      'Set-Cookie': `admin_session=${sessionStr}; Path=/; Max-Age=86400; SameSite=Lax; HttpOnly`,
+    },
   })
 
   return response
