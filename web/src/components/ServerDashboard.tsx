@@ -1,4 +1,4 @@
-import { Cpu, MemoryStick, HardDrive, Network, Shield, Clock, RefreshCw, Plus } from 'lucide-react'
+import { Cpu, MemoryStick, HardDrive, Network, Shield, RefreshCw, Plus } from 'lucide-react'
 import { useState } from 'react'
 
 interface Server {
@@ -110,8 +110,6 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
       setError('未授权，请重新登录')
       return
     }
-    console.log('[ADD] Submitting hostname:', newHostname, 'token:', token.substring(0, 20))
-    alert(`准备提交: ${newHostname}`)
     setLoading(true)
     setError('')
     try {
@@ -121,7 +119,6 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
         body: JSON.stringify({ hostname: newHostname.trim() }),
       })
       const data = await res.json()
-      console.log('[ADD] Response:', data)
       if (res.ok) {
         setGeneratedKey(data.api_key)
         setShowKeyModal(true)
@@ -129,7 +126,6 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
         setError(data.error || 'Failed to add server')
       }
     } catch (err) {
-      console.error('[ADD] Error:', err)
       setError('Network error: ' + err)
     } finally {
       setLoading(false)
@@ -183,117 +179,117 @@ export function ServerDashboard({ servers, token }: { servers: Server[]; token: 
     return 'bg-red-100 text-red-800'
   }
 
-  if (servers.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <Shield className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900">暂无服务器</h3>
-        <p className="mt-2 text-gray-600 mb-6">添加第一台服务器开始监控</p>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          添加服务器
-        </button>
-      </div>
-    )
-  }
-
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-medium text-gray-900">服务器列表</h2>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          添加服务器
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        {servers.map((server) => (
-          <div key={server.id} className="bg-white shadow rounded-lg overflow-hidden">
-            <div className="p-5">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-medium text-gray-900">{server.hostname}</h3>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(server.last_update)}`}>
-                      {getTimeAgo(server.last_update)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    IP: {server.public_ip} · {server.os} · {server.platform}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Agent v{server.agent_version} · 创建于 {new Date(server.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setResetHostname(server.hostname)
-                    setError('')
-                    setShowResetModal(true)
-                  }}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm text-gray-700 rounded-md hover:bg-gray-50"
-                >
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                  重置密钥
-                </button>
-              </div>
-
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center">
-                  <Cpu className="h-5 w-5 text-gray-400" />
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">CPU</p>
-                    <p className="text-xs text-gray-500">
-                      {server.cpu.usage_percent.toFixed(1)}% · {server.cpu.cores} 核
-                      {server.cpu.model_name && ` · ${server.cpu.model_name}`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <MemoryStick className="h-5 w-5 text-gray-400" />
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">内存</p>
-                    <p className="text-xs text-gray-500">
-                      {server.memory.used_percent.toFixed(1)}% · {formatBytes(server.memory.used)} / {formatBytes(server.memory.total)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <HardDrive className="h-5 w-5 text-gray-400" />
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">磁盘</p>
-                    <p className="text-xs text-gray-500">
-                      {server.disk.length} 个分区
-                      {server.disk.length > 0 && ` · 最大 ${Math.max(...server.disk.map(d => d.used_percent)).toFixed(0)}%`}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {server.network.length > 0 && (
-                <div className="mt-4 flex items-center">
-                  <Network className="h-5 w-5 text-gray-400" />
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">网络</p>
-                    <p className="text-xs text-gray-500">
-                      {server.network.map(n => `${n.name}: ↑${formatBytes(n.bytes_sent)} ↓${formatBytes(n.bytes_recv)}`).join(' · ')}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+      {servers.length === 0 ? (
+        <div className="text-center py-12">
+          <Shield className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900">暂无服务器</h3>
+          <p className="mt-2 text-gray-600 mb-6">添加第一台服务器开始监控</p>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            添加服务器
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-medium text-gray-900">服务器列表</h2>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              添加服务器
+            </button>
           </div>
-        ))}
-      </div>
+
+          <div className="space-y-4">
+            {servers.map((server) => (
+              <div key={server.id} className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="p-5">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-medium text-gray-900">{server.hostname}</h3>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(server.last_update)}`}>
+                          {getTimeAgo(server.last_update)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">
+                        IP: {server.public_ip} · {server.os} · {server.platform}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Agent v{server.agent_version} · 创建于 {new Date(server.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setResetHostname(server.hostname)
+                        setError('')
+                        setShowResetModal(true)
+                      }}
+                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm text-gray-700 rounded-md hover:bg-gray-50"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                      重置密钥
+                    </button>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="flex items-center">
+                      <Cpu className="h-5 w-5 text-gray-400" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-900">CPU</p>
+                        <p className="text-xs text-gray-500">
+                          {server.cpu.usage_percent.toFixed(1)}% · {server.cpu.cores} 核
+                          {server.cpu.model_name && ` · ${server.cpu.model_name}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <MemoryStick className="h-5 w-5 text-gray-400" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-900">内存</p>
+                        <p className="text-xs text-gray-500">
+                          {server.memory.used_percent.toFixed(1)}% · {formatBytes(server.memory.used)} / {formatBytes(server.memory.total)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <HardDrive className="h-5 w-5 text-gray-400" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-900">磁盘</p>
+                        <p className="text-xs text-gray-500">
+                          {server.disk.length} 个分区
+                          {server.disk.length > 0 && ` · 最大 ${Math.max(...server.disk.map(d => d.used_percent)).toFixed(0)}%`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {server.network.length > 0 && (
+                    <div className="mt-4 flex items-center">
+                      <Network className="h-5 w-5 text-gray-400" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-900">网络</p>
+                        <p className="text-xs text-gray-500">
+                          {server.network.map(n => `${n.name}: ↑${formatBytes(n.bytes_sent)} ↓${formatBytes(n.bytes_recv)}`).join(' · ')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Add Server Modal */}
       <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="添加服务器">
