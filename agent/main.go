@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -12,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/host"
@@ -19,18 +18,17 @@ import (
 	"github.com/shirou/gopsutil/v3/net"
 )
 
-// ServerInfo represents the server information collected from the agent
 type ServerInfo struct {
-	Hostname     string             `json:"hostname"`
-	OS           string             `json:"os"`
-	Platform     string             `json:"platform"`
-	CPU          CPUInfo            `json:"cpu"`
-	Memory       MemoryInfo         `json:"memory"`
-	Disk         []DiskInfo         `json:"disk"`
-	Network      []NetworkInfo      `json:"network"`
-	PublicIP     string             `json:"public_ip"`
-	LastUpdate   time.Time          `json:"last_update"`
-	AgentVersion string             `json:"agent_version"`
+	Hostname     string      `json:"hostname"`
+	OS           string      `json:"os"`
+	Platform     string      `json:"platform"`
+	CPU          CPUInfo     `json:"cpu"`
+	Memory       MemoryInfo  `json:"memory"`
+	Disk         []DiskInfo  `json:"disk"`
+	Network      []NetworkInfo `json:"network"`
+	PublicIP     string      `json:"public_ip"`
+	LastUpdate   time.Time   `json:"last_update"`
+	AgentVersion string      `json:"agent_version"`
 }
 
 type CPUInfo struct {
@@ -40,9 +38,9 @@ type CPUInfo struct {
 }
 
 type MemoryInfo struct {
-	Total        uint64  `json:"total"`
-	Used         uint64  `json:"used"`
-	UsedPercent  float64 `json:"used_percent"`
+	Total       uint64  `json:"total"`
+	Used        uint64  `json:"used"`
+	UsedPercent float64 `json:"used_percent"`
 }
 
 type DiskInfo struct {
@@ -60,45 +58,31 @@ type NetworkInfo struct {
 }
 
 var agentVersion = "1.0.0"
-var backendURL = "http://localhost:3000"
+var wsURL = "ws://localhost:3001/api/ws"
 var updateInterval = 30 * time.Second
-var apiKey = ""
 
 func main() {
 	log.Printf("DDNS Agent v%s starting...", agentVersion)
 
-	// Get backend URL from environment
-	if url := os.Getenv("DDNS_BACKEND_URL"); url != "" {
-		backendURL = url
+	if url := os.Getenv("DDNS_WS_URL"); url != "" {
+		wsURL = url
 	}
 	if interval := os.Getenv("DDNS_UPDATE_INTERVAL"); interval != "" {
 		if d, err := time.ParseDuration(interval); err == nil {
 			updateInterval = d
 		}
 	}
-	if key := os.Getenv("DDNS_API_KEY"); key != "" {
-		apiKey = key
-	}
 
-	if apiKey == "" {
-		log.Println("WARNING: DDNS_API_KEY not set, please set it for authentication")
-	}
-
-	// Collect initial system info
 	info := collectServerInfo()
-
-	// Send initial report
 	sendReport(info)
 
-	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start periodic updates
 	ticker := time.NewTicker(updateInterval)
 	defer ticker.Stop()
 
-	log.Printf("Reporting to %s every %v", backendURL, updateInterval)
+	log.Printf("Reporting to %s every %v", wsURL, updateInterval)
 
 	for {
 		select {
@@ -118,7 +102,6 @@ func collectServerInfo() *ServerInfo {
 		LastUpdate:   time.Now(),
 	}
 
-	// Host info
 	hostInfo, err := host.Info()
 	if err == nil {
 		info.Hostname = hostInfo.Hostname
@@ -128,10 +111,8 @@ func collectServerInfo() *ServerInfo {
 		info.Hostname = getHostname()
 	}
 
-	// Public IP
 	info.PublicIP = getPublicIP()
 
-	// CPU info
 	cpuInfo, _ := cpu.Info()
 	if len(cpuInfo) > 0 {
 		info.CPU.ModelName = cpuInfo[0].ModelName
@@ -142,7 +123,6 @@ func collectServerInfo() *ServerInfo {
 		info.CPU.UsagePercent = cpuPercent[0]
 	}
 
-	// Memory info
 	memInfo, _ := mem.VirtualMemory()
 	info.Memory = MemoryInfo{
 		Total:       memInfo.Total,
@@ -150,7 +130,6 @@ func collectServerInfo() *ServerInfo {
 		UsedPercent: memInfo.UsedPercent,
 	}
 
-	// Disk info
 	diskParts, _ := disk.Partitions(false)
 	for _, part := range diskParts {
 		usage, _ := disk.Usage(part.Mountpoint)
@@ -161,7 +140,6 @@ func collectServerInfo() *ServerInfo {
 		})
 	}
 
-	// Network info
 	ioStats, _ := net.IOCounters(false)
 	for _, io := range ioStats {
 		info.Network = append(info.Network, NetworkInfo{
@@ -177,7 +155,6 @@ func collectServerInfo() *ServerInfo {
 }
 
 func getPublicIP() string {
-	// Try multiple services for reliability
 	services := []string{
 		"https://api.ipify.org",
 		"https://ifconfig.me/ip",
@@ -210,49 +187,33 @@ func getHostname() string {
 	return hostname
 }
 
-func createToken(report []byte) string {
-	h := sha256.New()
-	h.Write([]byte(apiKey))
-	h.Write(report)
-	return hex.EncodeToString(h.Sum(nil))
-}
-
 func sendReport(info *ServerInfo) {
-	client := &http.Client{Timeout: 10 * time.Second}
-
-	// Send server info report
 	reportData, err := json.Marshal(info)
 	if err != nil {
 		log.Printf("Error marshaling report: %v", err)
 		return
 	}
 
-	req, err := http.NewRequest("POST", backendURL+"/api/servers", bytes.NewBuffer(reportData))
+	url := wsURL
+	if !hasScheme(url) {
+		url = "ws://" + url
+	}
+
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		log.Printf("Error creating request: %v", err)
+		log.Printf("Error connecting to WebSocket: %v", err)
 		return
 	}
+	defer conn.Close()
 
-	// Add authentication token if API key is set
-	if apiKey != "" {
-		token := createToken(reportData)
-		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("X-Server-ID", info.Hostname)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
+	if err := conn.WriteMessage(websocket.TextMessage, reportData); err != nil {
 		log.Printf("Error sending report: %v", err)
 		return
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode == 401 {
-		log.Printf("Authentication failed for server %s, check your DDNS_API_KEY", info.Hostname)
-		return
-	}
+	log.Printf("Report sent successfully for server %s", info.Hostname)
+}
 
-	log.Printf("Report sent successfully (HTTP %d) for server %s", resp.StatusCode, info.Hostname)
+func hasScheme(url string) bool {
+	return len(url) > 5 && url[:5] == "ws://" || len(url) > 6 && url[:6] == "wss://"
 }
